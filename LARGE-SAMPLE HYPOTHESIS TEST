@@ -1,0 +1,72 @@
+# -- TASK A --
+
+# Load required libraries
+library(dplyr)
+library(lubridate)
+
+# Step 1: Load Dataset
+df <- read.csv("health_fitness_dataset.csv")
+
+# Step 2: Convert 'date' column to Date format
+df$date <- dmy(df$date)
+
+# Step 3: Compute Average Daily Steps per User and Classify Lifestyle
+avg_steps <- df %>%
+  group_by(participant_id) %>%
+  summarise(avg_daily_steps = mean(daily_steps, na.rm = TRUE)) %>%
+  mutate(
+    lifestyle = case_when(
+      avg_daily_steps < 5000 ~ "Sedentary",
+      avg_daily_steps < 10000 ~ "Moderately Active",
+      TRUE ~ "Active"
+    )
+  )
+
+# Step 4: Merge lifestyle data back to the main dataset
+df <- df %>%
+  left_join(avg_steps, by = "participant_id")
+
+# Step 5: Display lifestyle distribution (optional)
+cat("==== PHASE 1: LIFESTYLE CLASSIFICATION RESULT ====\n")
+print(table(avg_steps$lifestyle))
+
+# Step 6: Filter Active group
+active_group <- df %>%
+  filter(lifestyle == "Active") %>%
+  pull(daily_steps)
+
+# Step 6.1: Histogram of Daily Steps (Active Group)
+hist(active_group,
+     main = "Histogram of Daily Steps (Active Group)",
+     xlab = "Daily Steps",
+     col = "skyblue",
+     border = "black")
+
+# Step 6.2: Q-Q Plot for Normality
+qqnorm(active_group,
+       main = "Q-Q Plot: Daily Steps (Active Group)")
+qqline(active_group, col = "red")
+
+# Step 7: Perform One-Sample Z-Test
+x_bar <- mean(active_group, na.rm = TRUE)  # Sample mean
+s <- sd(active_group, na.rm = TRUE)        # Sample standard deviation
+n <- length(active_group)                  # Sample size
+mu_0 <- 10000                              # Population mean (null hypothesis)
+
+z <- (x_bar - mu_0) / (s / sqrt(n))        # Z-statistic
+p_value <- 1 - pnorm(z)                    # One-tailed p-value
+
+# Step 8: Print results
+cat("\n==== TASK A: LARGE SAMPLE Z-TEST RESULT ====\n")
+cat("Sample Size (n):", n, "\n")
+cat("Sample Mean (x̄):", round(x_bar, 2), "\n")
+cat("Standard Deviation (s):", round(s, 2), "\n")
+cat("Z Statistic:", round(z, 4), "\n")
+cat("P-Value:", format.pval(p_value, digits = 6), "\n")
+
+# Step 9: Conclusion
+if (p_value < 0.05) {
+  cat("Conclusion: Since p < 0.05, we reject the null hypothesis.\n")
+} else {
+  cat("Conclusion: Since p > 0.05, we fail to reject the null hypothesis.\n")
+}
