@@ -1,0 +1,46 @@
+# -- TASK C --
+
+# Load required libraries
+library(dplyr)
+library(ggplot2)
+
+# Step 1: Filter relevant data for Sedentary and Active participants
+sleep_data <- df %>%
+  filter(lifestyle %in% c("Sedentary", "Active")) %>%
+  select(participant_id, lifestyle, sleep_hours) %>%
+  filter(!is.na(sleep_hours))
+
+# Step 2: Test for equal variances using F-test
+sedentary_sleep <- sleep_data %>% filter(lifestyle == "Sedentary") %>% pull(sleep_hours)
+active_sleep <- sleep_data %>% filter(lifestyle == "Active") %>% pull(sleep_hours)
+
+f_stat <- var(sedentary_sleep) / var(active_sleep)
+df1 <- length(sedentary_sleep) - 1
+df2 <- length(active_sleep) - 1
+p_f <- 2 * min(pf(f_stat, df1, df2), 1 - pf(f_stat, df1, df2))  # two-tailed
+
+cat("\n==== F-TEST FOR EQUAL VARIANCES ====\n")
+cat("F Statistic:", round(f_stat, 4), "\n")
+cat("P-Value:", format.pval(p_f, digits = 6), "\n")
+if (p_f < 0.05) {
+  cat("Conclusion: Variances are significantly different. Use Welch’s t-test.\n")
+} else {
+  cat("Conclusion: Variances are equal. Use Student’s t-test.\n")
+}
+
+# Step 3: Independent t-test (Welch’s or Student’s)
+t_test_result <- t.test(
+  sleep_hours ~ lifestyle,
+  data = sleep_data,
+  var.equal = (p_f >= 0.05)  # TRUE if equal variances
+)
+
+# Step 4: Output t-test results
+cat("\n==== TASK C: INDEPENDENT TWO-SAMPLE T-TEST ====\n")
+print(t_test_result)
+
+# Step 5: Visualization
+ggplot(sleep_data, aes(x = lifestyle, y = sleep_hours, fill = lifestyle)) +
+  geom_boxplot() +
+  labs(title = "Sleep Hours: Sedentary vs Active", x = "Lifestyle", y = "Sleep Hours") +
+  theme_minimal()
