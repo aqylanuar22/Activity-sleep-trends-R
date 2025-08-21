@@ -1,0 +1,64 @@
+# --- TASK B: Small-Sample Paired t-Test ---
+
+# Load libraries
+library(dplyr)
+library(lubridate)
+library(tidyr)
+library(ggplot2)
+
+# Load dataset
+df <- read.csv("health_fitness_dataset.csv")
+df$date <- dmy(df$date)
+
+# Step 1: Filter data with non-missing daily_steps and sleep_hours
+df_valid <- df %>%
+  filter(!is.na(daily_steps), !is.na(sleep_hours))
+
+# Step 2: Ensure each user has at least 7 days of data
+user_counts <- df_valid %>%
+  group_by(participant_id) %>%
+  summarise(days_available = n_distinct(date)) %>%
+  filter(days_available >= 7)
+
+# Step 3: Randomly select 10 users
+set.seed(123)
+sample_users <- sample(user_counts$participant_id, 10)
+
+# Step 4: Filter dataset for the 10 users
+taskb_data <- df_valid %>%
+  filter(participant_id %in% sample_users)
+
+# Step 5: Add weekday/weekend label
+taskb_data <- taskb_data %>%
+  mutate(period = ifelse(weekdays(date) %in% c("Saturday", "Sunday"), "Weekend", "Weekday"))
+
+# Step 6: Calculate average steps by period for each participant
+paired_avg <- taskb_data %>%
+  group_by(participant_id, period) %>%
+  summarise(avg_steps = mean(daily_steps), .groups = "drop") %>%
+  pivot_wider(names_from = period, values_from = avg_steps) %>%
+  drop_na()
+
+# Step 7: Paired t-test
+t_test_result <- t.test(paired_avg$Weekday, paired_avg$Weekend, paired = TRUE)
+
+# Step 8: Print result
+cat("\n==== TASK B: SMALL-SAMPLE PAIRED T-TEST RESULT ====\n")
+print(t_test_result)
+
+# Step 9: Visualization (Boxplot)
+paired_long <- paired_avg %>%
+  pivot_longer(cols = c("Weekday", "Weekend"),
+               names_to = "Period",
+               values_to = "Steps")
+
+ggplot(paired_long, aes(x = Period, y = Steps, fill = Period)) +
+  geom_boxplot() +
+  labs(title = "Boxplot of Average Step Counts: Weekday vs Weekend (10 Users)",
+       x = "Period", y = "Steps") +
+  theme_minimal()
+
+# Optional: Q-Q plot
+qqnorm(paired_avg$Weekday - paired_avg$Weekend,
+       main = "Q-Q Plot of Differences (Weekday - Weekend)")
+qqline(paired_avg$Weekday - paired_avg$Weekend, col = "pink")
