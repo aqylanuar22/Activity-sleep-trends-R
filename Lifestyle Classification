@@ -1,0 +1,36 @@
+# Step 1: Load Dataset (make sure it's in your working directory)
+df <- read_csv("/Users/itsaqil/Desktop/health_fitness_dataset.csv")
+
+# Step 2: Convert 'date' Column
+df$date <- dmy(df$date)
+
+# Step 3: Calculate Average Daily Steps and Classify Lifestyle
+avg_steps <- df %>%
+  group_by(participant_id) %>%
+  summarise(avg_daily_steps = mean(daily_steps, na.rm = TRUE)) %>%
+  mutate(lifestyle = case_when(
+    avg_daily_steps < 5000 ~ "Sedentary",
+    avg_daily_steps < 10000 ~ "Moderately Active",
+    TRUE ~ "Active"
+  ))
+
+# Step 4: Merge Lifestyle Classification Back to Main Data
+df <- df %>%
+  left_join(avg_steps, by = "participant_id")
+
+# Step 5: Show Lifestyle Group Distribution
+cat("==== PHASE 1: LIFESTYLE CLASSIFICATION RESULT ====\n")
+print(table(avg_steps$lifestyle))
+
+# Step 6: Preview Cleaned Data
+cat("\n==== PREVIEW OF CLEANED DATA ====\n")
+print(head(df))
+
+library(ggplot2)
+
+ggplot(avg_steps, aes(x = lifestyle, fill = lifestyle)) +
+  geom_bar() +
+  labs(title = "Lifestyle Classification Distribution",
+       x = "Lifestyle Category",
+       y = "Number of Participants") +
+  theme_minimal()
