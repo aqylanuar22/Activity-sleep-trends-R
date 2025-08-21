@@ -1,0 +1,63 @@
+# -- TASK D --
+
+# Load necessary libraries
+library(dplyr)
+library(ggplot2)
+library(readr)
+library(lubridate)
+
+# Step 1: Load and prepare dataset
+df <- read_csv("health_fitness_dataset.csv")
+df$date <- dmy(df$date)
+
+# Step 2: Classify lifestyle based on average daily steps
+avg_steps <- df %>%
+  group_by(participant_id) %>%
+  summarise(avg_daily_steps = mean(daily_steps, na.rm = TRUE)) %>%
+  mutate(lifestyle = case_when(
+    avg_daily_steps < 5000 ~ "Sedentary",
+    avg_daily_steps < 10000 ~ "Moderately Active",
+    TRUE ~ "Active"
+  ))
+
+# Step 3: Merge classification with main dataset
+df <- df %>%
+  left_join(avg_steps, by = "participant_id")
+
+# Step 4: Filter for valid sleep_hours and lifestyle groups
+anova_data <- df %>%
+  filter(!is.na(sleep_hours), lifestyle %in% c("Sedentary", "Moderately Active", "Active")) %>%
+  select(participant_id, lifestyle, sleep_hours)
+
+# Step 5: Visualize with boxplot
+ggplot(anova_data, aes(x = lifestyle, y = sleep_hours, fill = lifestyle)) +
+  geom_boxplot() +
+  labs(title = "Sleep Hours by Lifestyle Category",
+       x = "Lifestyle",
+       y = "Sleep Hours") +
+  theme_minimal()
+
+# Step 6: Optional - Q-Q plot by lifestyle (Normality check)
+qqnorm(anova_data$sleep_hours[anova_data$lifestyle == "Sedentary"],
+       main = "Q-Q Plot: Sedentary")
+qqline(anova_data$sleep_hours[anova_data$lifestyle == "Sedentary"], col = "red")
+
+qqnorm(anova_data$sleep_hours[anova_data$lifestyle == "Moderately Active"],
+       main = "Q-Q Plot: Moderately Active")
+qqline(anova_data$sleep_hours[anova_data$lifestyle == "Moderately Active"], col = "blue")
+
+qqnorm(anova_data$sleep_hours[anova_data$lifestyle == "Active"],
+       main = "Q-Q Plot: Active")
+qqline(anova_data$sleep_hours[anova_data$lifestyle == "Active"], col = "green")
+
+# Step 7: Perform One-Way ANOVA
+anova_result <- aov(sleep_hours ~ lifestyle, data = anova_data)
+
+# Step 8: Print ANOVA results
+cat("\n==== TASK D: ONE-WAY ANOVA RESULT ====\n")
+print(summary(anova_result))
+
+# Step 9: Optional - Post Hoc (Tukey HSD)
+tukey_result <- TukeyHSD(anova_result)
+cat("\n==== POST HOC ANALYSIS (Tukey HSD) ====\n")
+print(tukey_result)
